@@ -26,10 +26,6 @@ buildscript {
 }
 apply plugin: 'com.android.application'
 
-repositories {
-    mavenCentral()
-    google()
-}
 
 def gitDescribe = { ->
     def stdout = new ByteArrayOutputStream()
@@ -138,7 +134,7 @@ android {
 
 dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
-    implementation project(":libraries:humla")
+    implementation project(":mumble:humla")
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'androidx.documentfile:documentfile:1.0.1'

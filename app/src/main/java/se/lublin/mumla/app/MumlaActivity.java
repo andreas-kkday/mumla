@@ -264,7 +264,7 @@ public class MumlaActivity extends AppCompatActivity implements ListView.OnItemC
         setTheme(mSettings.getTheme());
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main_mumble);
 
         setStayAwake(mSettings.shouldStayAwake());
 

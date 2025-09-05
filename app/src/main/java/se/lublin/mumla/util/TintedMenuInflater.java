@@ -43,12 +43,12 @@ public class TintedMenuInflater {
     public TintedMenuInflater(Context context, MenuInflater inflater) {
         mInflater = inflater;
         TypedArray actionBarThemeArray =
-                context.obtainStyledAttributes(new int[]{R.attr.actionBarStyle});
+                context.obtainStyledAttributes(new int[]{android.R.attr.actionBarStyle});
         int actionBarTheme = actionBarThemeArray.getResourceId(0, 0);
         actionBarThemeArray.recycle();
 
         TypedArray titleTextStyleArray =
-                context.obtainStyledAttributes(actionBarTheme, new int[]{R.attr.titleTextStyle});
+                context.obtainStyledAttributes(actionBarTheme, new int[]{android.R.attr.titleTextStyle});
         int titleTextStyle = titleTextStyleArray.getResourceId(0, 0);
         titleTextStyleArray.recycle();
 

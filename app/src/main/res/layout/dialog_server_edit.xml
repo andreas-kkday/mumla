@@ -55,6 +55,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:text="uat-voip.1111job.app"
             android:inputType="textUri" />
         <EditText
             android:id="@+id/server_edit_port"
@@ -87,5 +88,6 @@
         android:layout_height="wrap_content"
         android:layout_width="match_parent"
         android:id="@+id/server_edit_password"
+        android:text="52@11118888"
         android:inputType="textPassword" />
 </LinearLayout>

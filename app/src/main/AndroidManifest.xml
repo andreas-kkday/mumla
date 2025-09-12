@@ -112,6 +112,29 @@
         </activity>
 
         <activity
+            android:name=".app.MumlaCallActivity"
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="mumble" />
+            </intent-filter>
+        </activity>
+
+
+        <activity
             android:name=".preference.CertificateSelectActivity"
             android:theme="@style/Base.Theme.AppCompat.Light.Dialog"
             android:exported="true">

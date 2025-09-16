@@ -34,7 +34,6 @@ import android.os.Bundle
 import android.os.IBinder
 import android.preference.PreferenceManager
 import android.text.InputType
-import android.util.Base64
 import android.util.Log
 import android.view.KeyEvent
 import android.view.Menu
@@ -74,10 +73,12 @@ import se.lublin.mumla.app.DrawerAdapter.DrawerDataProvider
 import se.lublin.mumla.channel.AccessTokenFragment
 import se.lublin.mumla.channel.ChannelFragment
 import se.lublin.mumla.channel.ServerInfoFragment
+import se.lublin.mumla.db.DatabaseCertificate
 import se.lublin.mumla.db.DatabaseProvider
 import se.lublin.mumla.db.MumlaDatabase
 import se.lublin.mumla.db.MumlaSQLiteDatabase
 import se.lublin.mumla.db.PublicServer
+import se.lublin.mumla.preference.MumlaCertificateGenerateTask
 import se.lublin.mumla.preference.Preferences
 import se.lublin.mumla.servers.FavouriteServerListFragment
 import se.lublin.mumla.servers.FavouriteServerListFragment.ServerConnectHandler
@@ -105,9 +106,17 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     ServerConnectHandler, HumlaServiceProvider, DatabaseProvider, OnSharedPreferenceChangeListener,
     DrawerDataProvider, ServerEditListener {
     private var mService: IMumlaService? = null
-    private var mDatabase: MumlaDatabase? = null
-    private var mSettings: Settings? = null
-    private lateinit var mViewModel: MumlaCallViewModel
+    private val mDatabase: MumlaDatabase by lazy {
+        MumlaSQLiteDatabase(this).also {
+            it.open()
+        }
+    }
+    private val mSettings: Settings by lazy {
+        Settings.getInstance(this)
+    }
+    private val mViewModel: MumlaCallViewModel by lazy {
+        ViewModelProvider(this)[MumlaCallViewModel::class.java]
+    }
 
     private var mDrawerToggle: ActionBarDrawerToggle? = null
     private var mDrawerLayout: DrawerLayout? = null
@@ -126,7 +135,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
     private val mConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder) {
-            mService = (service as MumlaBinder).getService()
+            mService = (service as MumlaBinder).service
             mService!!.setSuppressNotifications(true)
             mService!!.registerObserver(mObserver)
             mService!!.registerObserver(mViewModel)
@@ -136,7 +145,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             for (fragment in mServiceFragments) fragment.setServiceBound(true)
 
             // Re-show server list if we're showing a fragment that depends on the service.
-            if (getSupportFragmentManager().findFragmentById(R.id.content_frame) is HumlaServiceFragment && !mService!!.isConnected()) {
+            if (supportFragmentManager.findFragmentById(R.id.content_frame) is HumlaServiceFragment && !mService!!.isConnected()) {
                 loadDrawerFragment(DrawerAdapter.ITEM_FAVOURITES)
             }
             updateConnectionState(getService()!!)
@@ -149,7 +158,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
     private val mObserver: HumlaObserver = object : HumlaObserver() {
         override fun onConnected() {
-            if (mSettings!!.shouldStartUpInPinnedMode()) {
+            if (mSettings.shouldStartUpInPinnedMode()) {
                 loadDrawerFragment(DrawerAdapter.ITEM_PINNED_CHANNELS)
             } else {
                 loadDrawerFragment(DrawerAdapter.ITEM_SERVER)
@@ -158,26 +167,26 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             mDrawerAdapter!!.notifyDataSetChanged()
             supportInvalidateOptionsMenu()
 
-            updateConnectionState(getService()!!)
+            updateConnectionState(service!!)
         }
 
         override fun onConnecting() {
-            updateConnectionState(getService()!!)
+            updateConnectionState(service!!)
         }
 
         override fun onDisconnected(e: HumlaException?) {
             // Re-show server list if we're showing a fragment that depends on the service.
-            if (getSupportFragmentManager().findFragmentById(R.id.content_frame) is HumlaServiceFragment) {
+            if (supportFragmentManager.findFragmentById(R.id.content_frame) is HumlaServiceFragment) {
                 loadDrawerFragment(DrawerAdapter.ITEM_FAVOURITES)
             }
             mDrawerAdapter!!.notifyDataSetChanged()
             supportInvalidateOptionsMenu()
 
-            updateConnectionState(getService()!!)
+            updateConnectionState(service!!)
         }
 
         override fun onTLSHandshakeFailed(chain: Array<X509Certificate>) {
-            val lastServer = getService()!!.getTargetServer()
+            val lastServer = service!!.getTargetServer()
 
             if (chain.size == 0) return
 
@@ -186,27 +195,25 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
                 val adb = AlertDialog.Builder(this@MumlaCallActivity)
                 adb.setTitle(R.string.untrusted_certificate)
-                val layout = getLayoutInflater().inflate(R.layout.certificate_info, null)
+                val layout = layoutInflater.inflate(R.layout.certificate_info, null)
                 val text = layout.findViewById<TextView>(R.id.certificate_info_text)
                 try {
                     val digest1 = MessageDigest.getInstance("SHA-1")
                     val digest2 = MessageDigest.getInstance("SHA-256")
-                    val hexDigest1 = String(Hex.encode(digest1.digest(x509.getEncoded()))).replace(
+                    val hexDigest1 = String(Hex.encode(digest1.digest(x509.encoded))).replace(
                         "(..)".toRegex(), "$1:"
                     )
-                    val hexDigest2 = String(Hex.encode(digest2.digest(x509.getEncoded()))).replace(
+                    val hexDigest2 = String(Hex.encode(digest2.digest(x509.encoded))).replace(
                         "(..)".toRegex(), "$1:"
                     )
 
-                    text.setText(
-                        getString(
-                            R.string.certificate_info,
-                            x509.getSubjectDN().getName(),
-                            x509.getNotBefore().toString(),
-                            x509.getNotAfter().toString(),
-                            hexDigest1.substring(0, hexDigest1.length - 1),
-                            hexDigest2.substring(0, hexDigest2.length - 1)
-                        )
+                    text.text = getString(
+                        R.string.certificate_info,
+                        x509.subjectDN.name,
+                        x509.notBefore.toString(),
+                        x509.notAfter.toString(),
+                        hexDigest1.substring(0, hexDigest1.length - 1),
+                        hexDigest2.substring(0, hexDigest2.length - 1)
                     )
                 } catch (e: NoSuchAlgorithmException) {
                     e.printStackTrace()
@@ -217,7 +224,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                     override fun onClick(dialog: DialogInterface?, which: Int) {
                         // Try to add to trust store
                         try {
-                            val alias = lastServer.getHost()
+                            val alias = lastServer.host
                             val trustStore = MumlaTrustStore.getTrustStore(this@MumlaCallActivity)
                             trustStore.setCertificateEntry(alias, x509)
                             MumlaTrustStore.saveTrustStore(this@MumlaCallActivity, trustStore)
@@ -249,25 +256,21 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        mSettings = Settings.getInstance(this)
-        setTheme(mSettings!!.getTheme())
+        setTheme(mSettings.getTheme())
 
-        mViewModel = ViewModelProvider(this)[MumlaCallViewModel::class.java]
+
 
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main_mumble)
 
-        setStayAwake(mSettings!!.shouldStayAwake())
+        setStayAwake(mSettings.shouldStayAwake())
 
         val preferences = PreferenceManager.getDefaultSharedPreferences(this)
         preferences.registerOnSharedPreferenceChangeListener(this)
 
-        mDatabase = MumlaSQLiteDatabase(this) // TODO add support for cloud storage
-        mDatabase!!.open()
-
         mDrawerLayout = findViewById<View?>(R.id.drawer_layout) as DrawerLayout
         mDrawerList = findViewById<View?>(R.id.left_drawer) as ListView
-        mDrawerList!!.setOnItemClickListener(this)
+        mDrawerList!!.onItemClickListener = this
         mDrawerAdapter = DrawerAdapter(this, this)
         mDrawerList!!.setAdapter(mDrawerAdapter)
         mDrawerToggle = object : ActionBarDrawerToggle(
@@ -280,9 +283,9 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             override fun onDrawerStateChanged(newState: Int) {
                 super.onDrawerStateChanged(newState)
                 // Prevent push to talk from getting stuck on when the drawer is opened.
-                if (getService() != null && getService()!!.isConnected()) {
-                    val session = getService()!!.HumlaSession()
-                    if (session.isTalking() && !mSettings!!.isPushToTalkToggle()) {
+                if (service != null && service!!.isConnected()) {
+                    val session = service!!.HumlaSession()
+                    if (session.isTalking() && !mSettings.isPushToTalkToggle) {
                         session.setTalkingState(false)
                     }
                 }
@@ -294,8 +297,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
         }
 
         mDrawerLayout!!.setDrawerListener(mDrawerToggle)
-        getSupportActionBar()!!.setDisplayHomeAsUpEnabled(true)
-        getSupportActionBar()!!.setHomeButtonEnabled(true)
+        supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+        supportActionBar!!.setHomeButtonEnabled(true)
 
         val dadb = AlertDialog.Builder(this)
         dadb.setPositiveButton(R.string.confirm, object : DialogInterface.OnClickListener {
@@ -308,9 +311,9 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
         mDisconnectPromptBuilder = dadb
 
         if (savedInstanceState == null) {
-            if (getIntent() != null && getIntent().hasExtra(EXTRA_DRAWER_FRAGMENT)) {
+            if (intent != null && intent.hasExtra(EXTRA_DRAWER_FRAGMENT)) {
                 loadDrawerFragment(
-                    getIntent().getIntExtra(
+                    intent.getIntExtra(
                         EXTRA_DRAWER_FRAGMENT, DrawerAdapter.ITEM_FAVOURITES
                     )
                 )
@@ -320,8 +323,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
         }
 
         // If we're given a Mumble URL to show, open up a server edit fragment.
-        if (getIntent() != null && Intent.ACTION_VIEW == getIntent().getAction()) {
-            val url = getIntent().getDataString()
+        if (intent != null && Intent.ACTION_VIEW == intent.action) {
+            val url = intent.dataString
             try {
                 val server = MumbleURLParser.parseURL(url)
 
@@ -329,7 +332,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                 val fragment = ServerEditFragment.createServerEditDialog(
                     this@MumlaCallActivity, server, ServerEditFragment.Action.CONNECT_ACTION, true
                 )
-                fragment.show(getSupportFragmentManager(), "url_edit")
+                fragment.show(supportFragmentManager, "url_edit")
             } catch (e: MalformedURLException) {
                 Toast.makeText(this, getString(R.string.mumble_url_parse_failed), Toast.LENGTH_LONG)
                     .show()
@@ -337,7 +340,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             }
         }
 
-        setVolumeControlStream(if (mSettings!!.isHandsetMode()) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC)
+        volumeControlStream =
+            if (mSettings.isHandsetMode) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
 
 //        if (mSettings!!.isFirstRun()) {
 //            showFirstRunGuide()
@@ -350,14 +354,12 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
         val toCorp = intent.getStringExtra(CORP) ?: ""
         val aboutJob = intent.getStringExtra(JOB_TITLE) ?: ""
 
-        // Use the parameters to create channel name or pass to ViewModel
-        val channelNameArray = Base64.encode(
-            "${fromUser}_${aboutJob}${Random.nextInt()}".toByteArray(),
-            Base64.NO_WRAP or Base64.URL_SAFE
-        ).toString(Charsets.UTF_8).toCharArray()
 
         lifecycleScope.launch {
-            mViewModel.connectServer(channelNameArray.toString().substring(0, 10))
+            generateCert()
+            delay(5000)
+            //Channel Name 不能有特殊字元【資訊科技】
+            mViewModel.connectServer("${toCorp}${Random.nextInt() % 10}".trim())
             if (fromUser.isEmpty()) return@launch
         }
 
@@ -402,11 +404,20 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                     }
 
                     is ServiceAction.CREATE_CHANNEL -> {
-                        createNewChannel(it.name, 0, it.name)
+                        val openChannelId =
+                            mService?.HumlaSession()?.sessionChannel?.subchannels?.first { sub ->
+                                sub.name == "openchannel"
+                            }?.id ?: return@collect
+                        createNewChannel(it.name, openChannelId, it.name)
                     }
 
                     is ServiceAction.JOIN_CHANNEL -> {
                         mService?.HumlaSession()?.joinChannel(it.channel.id)
+                    }
+
+                    ServiceAction.REGISTER -> {
+                        val sessionId = mService?.HumlaSession()?.sessionId ?: return@collect
+                        mService?.HumlaSession()?.registerUser(sessionId)
                     }
                 }
             }
@@ -442,21 +453,21 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     override fun onDestroy() {
         val preferences = PreferenceManager.getDefaultSharedPreferences(this)
         preferences.unregisterOnSharedPreferenceChangeListener(this)
-        mDatabase!!.close()
+        mDatabase.close()
         super.onDestroy()
     }
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val disconnectButton = menu.findItem(R.id.action_disconnect)
-        disconnectButton.setVisible(mService != null && mService!!.isConnected())
+        disconnectButton.isVisible = mService != null && mService!!.isConnected()
 
         // Color the action bar icons to the primary text color of the theme.
-        val foregroundColor = getSupportActionBar()!!.getThemedContext()
+        val foregroundColor = supportActionBar!!.themedContext
             .obtainStyledAttributes(intArrayOf(android.R.attr.textColor)).getColor(0, -1)
         for (x in 0..<menu.size()) {
             val item = menu.getItem(x)
-            if (item.getIcon() != null) {
-                val icon = item.getIcon()!!
+            if (item.icon != null) {
+                val icon = item.icon!!
                     .mutate() // Mutate the icon so that the color filter is exclusive to the action bar
                 icon.setColorFilter(foregroundColor, PorterDuff.Mode.MULTIPLY)
             }
@@ -467,14 +478,14 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.mumla, menu)
+        menuInflater.inflate(R.menu.mumla, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (mDrawerToggle!!.onOptionsItemSelected(item)) return true
-        if (item.getItemId() == R.id.action_disconnect) {
-            getService()!!.disconnect()
+        if (item.itemId == R.id.action_disconnect) {
+            service!!.disconnect()
             return true
         }
         return false
@@ -486,7 +497,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (mService != null && keyCode == mSettings!!.getPushToTalkKey()) {
+        if (mService != null && keyCode == mSettings.pushToTalkKey) {
             mService!!.onTalkKeyDown()
             return true
         }
@@ -494,7 +505,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        if (mService != null && keyCode == mSettings!!.getPushToTalkKey()) {
+        if (mService != null && keyCode == mSettings.pushToTalkKey) {
             mService!!.onTalkKeyUp()
             return true
         }
@@ -505,7 +516,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
         if (mService != null && mService!!.isConnected()) {
             mDisconnectPromptBuilder!!.setMessage(
                 getString(
-                    R.string.disconnectSure, mService!!.getTargetServer().getName()
+                    R.string.disconnectSure, mService!!.getTargetServer().name
                 )
             )
             mDisconnectPromptBuilder!!.show()
@@ -517,6 +528,20 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     override fun onItemClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
         mDrawerLayout!!.closeDrawers()
         loadDrawerFragment(id.toInt())
+    }
+
+    private fun generateCert() {
+        val generateTask: MumlaCertificateGenerateTask =
+            object : MumlaCertificateGenerateTask(this@MumlaCallActivity) {
+                override fun onPostExecute(result: DatabaseCertificate?) {
+                    super.onPostExecute(result)
+                    if (result != null) {
+                        Log.d(TAG, "Set default cert id ${result.id}")
+                        mSettings.setDefaultCertificateId(result.id)
+                    }
+                }
+            }
+        generateTask.execute()
     }
 
 //    private fun showFirstRunGuide() {
@@ -558,11 +583,11 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             DrawerAdapter.ITEM_INFO -> fragmentClass = ServerInfoFragment::class.java
             DrawerAdapter.ITEM_ACCESS_TOKENS -> {
                 fragmentClass = AccessTokenFragment::class.java
-                val connectedServer = getService()!!.getTargetServer()
-                args.putLong("server", connectedServer.getId())
+                val connectedServer = service!!.getTargetServer()
+                args.putLong("server", connectedServer.id)
                 args.putStringArrayList(
                     "access_tokens",
-                    mDatabase!!.getAccessTokens(connectedServer.getId()) as ArrayList<String?>?
+                    mDatabase.getAccessTokens(connectedServer.id) as ArrayList<String?>?
                 )
             }
 
@@ -582,7 +607,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             else -> return
         }
         val fragment = Fragment.instantiate(this, fragmentClass.getName(), args)
-        getSupportFragmentManager().beginTransaction()
+        supportFragmentManager.beginTransaction()
             .replace(R.id.content_frame, fragment, fragmentClass.getName())
             .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE).commit()
         setTitle(mDrawerAdapter!!.getItemWithId(fragmentId).title)
@@ -700,7 +725,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
         // Allow username entry
         val usernameField = EditText(this)
-        usernameField.setHint(settings.getDefaultUsername())
+        usernameField.setHint(settings.defaultUsername)
         alertBuilder.setView(usernameField)
 
         alertBuilder.setTitle(R.string.connectToServer)
@@ -710,8 +735,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                 val newServer = server
                 if (usernameField.getText()
                         .toString() != ""
-                ) newServer.setUsername(usernameField.getText().toString())
-                else newServer.setUsername(settings.getDefaultUsername())
+                ) newServer.username = usernameField.getText().toString()
+                else newServer.username = settings.defaultUsername
                 connectToServer(newServer)
             }
         })
@@ -721,9 +746,9 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
 
     private fun setStayAwake(stayAwake: Boolean) {
         if (stayAwake) {
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
-            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 
@@ -742,7 +767,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             HumlaService.ConnectionState.CONNECTING -> {
                 val server = service.getTargetServer()
                 mConnectingDialog = ProgressDialog(this)
-                mConnectingDialog!!.setIndeterminate(true)
+                mConnectingDialog!!.isIndeterminate = true
                 mConnectingDialog!!.setCancelable(true)
                 mConnectingDialog!!.setOnCancelListener(object : DialogInterface.OnCancelListener {
                     override fun onCancel(dialog: DialogInterface?) {
@@ -756,8 +781,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                 // only the configured hostname)
                 mConnectingDialog!!.setMessage(
                     getString(
-                        R.string.connecting_to_server, server.getHost()
-                    ) + (if (mSettings!!.isTorEnabled()) " (Tor)" else "")
+                        R.string.connecting_to_server, server.host
+                    ) + (if (mSettings.isTorEnabled) " (Tor)" else "")
                 )
                 mConnectingDialog!!.show()
             }
@@ -769,7 +794,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                         return
                     }
                     val ab = Builder(this@MumlaCallActivity)
-                    ab.setTitle(getString(R.string.connectionRefused) + (if (mSettings!!.isTorEnabled()) " (Tor)" else ""))
+                    ab.setTitle(getString(R.string.connectionRefused) + (if (mSettings.isTorEnabled) " (Tor)" else ""))
                     val error = getService()!!.getConnectionError()
                     if (error != null && mService!!.isReconnecting()) {
                         ab.setMessage(
@@ -787,8 +812,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                                     }
                                 }
                             })
-                    } else if (error != null && error.getReason() == HumlaException.HumlaDisconnectReason.REJECT && (error.getReject()
-                            .getType() == Mumble.Reject.RejectType.WrongUserPW || error.getReject()
+                    } else if (error != null && error.reason == HumlaException.HumlaDisconnectReason.REJECT && (error.reject
+                            .getType() == Mumble.Reject.RejectType.WrongUserPW || error.reject
                             .getType() == Mumble.Reject.RejectType.WrongServerPW)
                     ) {
                         val passwordField = EditText(this)
@@ -805,8 +830,8 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                                     val server = getService()!!.getTargetServer()
                                     if (server == null) return
                                     val password = passwordField.getText().toString()
-                                    server.setPassword(password)
-                                    if (server.isSaved()) mDatabase!!.updateServer(server)
+                                    server.password = password
+                                    if (server.isSaved) mDatabase.updateServer(server)
                                     connectToServer(server)
                                 }
                             })
@@ -843,7 +868,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     override fun getDatabase(): MumlaDatabase {
-        return mDatabase!!
+        return mDatabase
     }
 
     override fun addServiceFragment(fragment: HumlaServiceFragment?) {
@@ -859,9 +884,10 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
             // Recreate activity when theme is changed
             recreate()
         } else if (Settings.PREF_STAY_AWAKE == key) {
-            setStayAwake(mSettings!!.shouldStayAwake())
+            setStayAwake(mSettings.shouldStayAwake())
         } else if (Settings.PREF_HANDSET_MODE == key) {
-            setVolumeControlStream(if (mSettings!!.isHandsetMode()) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC)
+            volumeControlStream =
+                if (mSettings.isHandsetMode) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
         }
     }
 
@@ -872,7 +898,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     override fun getConnectedServerName(): String? {
         if (mService != null && mService!!.isConnected()) {
             val server = mService!!.getTargetServer()
-            return if (server.getName() == "") server.getHost() else server.getName()
+            return if (server.name == "") server.host else server.name
         }
         if (BuildConfig.DEBUG) throw RuntimeException("getConnectedServerName should only be called if connected!")
         return ""
@@ -881,12 +907,12 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     override fun onServerEdited(action: ServerEditFragment.Action, server: Server?) {
         when (action) {
             ServerEditFragment.Action.ADD_ACTION -> {
-                mDatabase!!.addServer(server)
+                mDatabase.addServer(server)
                 loadDrawerFragment(DrawerAdapter.ITEM_FAVOURITES)
             }
 
             ServerEditFragment.Action.EDIT_ACTION -> {
-                mDatabase!!.updateServer(server)
+                mDatabase.updateServer(server)
                 loadDrawerFragment(DrawerAdapter.ITEM_FAVOURITES)
             }
 

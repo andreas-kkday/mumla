@@ -33,6 +33,8 @@ import kotlin.random.Random
 
 sealed class ServiceAction {
     object DISCONNECT : ServiceAction()
+
+    object REGISTER : ServiceAction()
     data class CONNECT(val server: Server) : ServiceAction()
 
     data class CREATE_CHANNEL(val name: String) : ServiceAction()
@@ -54,6 +56,7 @@ sealed class ServiceState(val channelName: String, val retryBackOff: Int = 3) {
 
     data class CONNECTED(
         private val _channelName: String,
+        val registered: Boolean = false
     ) : ServiceState(_channelName, 3)
 
     data class DISCONNECTING(
@@ -66,7 +69,9 @@ sealed class ServiceState(val channelName: String, val retryBackOff: Int = 3) {
     ) : ServiceState(_channelName, 3)
 }
 
-class MumlaCallViewModel(application: Application) : BaseHumlaViewModel(application) {
+class MumlaCallViewModel(
+    application: Application,
+) : BaseHumlaViewModel(application) {
 
     private val _actionSharedFlow: MutableSharedFlow<ServiceAction> = MutableSharedFlow()
     val actionSharedFlow = _actionSharedFlow.asSharedFlow()
@@ -82,7 +87,7 @@ class MumlaCallViewModel(application: Application) : BaseHumlaViewModel(applicat
             "",
             "uat-voip.1111job.app",
             0,
-            "User_${Random.nextInt(1000)}",
+            "UserR_${Random.nextInt(1000)}",
             "52@11118888"
         )
         viewModelScope.launch {
@@ -94,6 +99,7 @@ class MumlaCallViewModel(application: Application) : BaseHumlaViewModel(applicat
     }
 
     fun createChannel(name: String) {
+        Log.d("MumlaCallViewModel", "createChannel $name")
         viewModelScope.launch {
             _actionSharedFlow.emit(ServiceAction.CREATE_CHANNEL(name))
         }
@@ -135,9 +141,12 @@ class MumlaCallViewModel(application: Application) : BaseHumlaViewModel(applicat
             _serverStateFlow.emit(
                 ServiceState.CONNECTED(channelName)
             )
-            _actionSharedFlow.emit(ServiceAction.CREATE_CHANNEL(channelName))
         }
+    }
 
+    override fun onUserStateUpdated(user: IUser) {
+        super.onUserStateUpdated(user)
+        Log.d("MumlaCallViewModel", "User ${user.name}")
     }
 
     override fun onChannelAdded(channel: IChannel) {
@@ -166,6 +175,7 @@ class MumlaCallViewModel(application: Application) : BaseHumlaViewModel(applicat
 
     override fun onPermissionDenied(reason: String?) {
         super.onPermissionDenied(reason)
+        //Check if any certificate issue here
         Log.e("MumlaCallViewModel", "onPermissionDenied $reason")
     }
 

@@ -53,6 +53,7 @@ public class MumlaCertificateGenerateTask extends AsyncTask<Void, Void, Database
         loadingDialog.setCancelable(false);
         loadingDialog.show();
     }
+
     @Override
     protected DatabaseCertificate doInBackground(Void... params) {
         try {
@@ -75,7 +76,7 @@ public class MumlaCertificateGenerateTask extends AsyncTask<Void, Void, Database
     @Override
     protected void onPostExecute(DatabaseCertificate result) {
         super.onPostExecute(result);
-        if(result == null) {
+        if (result == null) {
             Toast.makeText(context, R.string.generateCertFailure, Toast.LENGTH_SHORT).show();
         }
 

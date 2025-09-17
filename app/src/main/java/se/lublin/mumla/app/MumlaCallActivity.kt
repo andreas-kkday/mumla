@@ -54,10 +54,10 @@ import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentTransaction
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.spongycastle.util.encoders.Hex
 import se.lublin.humla.HumlaService
 import se.lublin.humla.IHumlaService
@@ -114,9 +114,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     private val mSettings: Settings by lazy {
         Settings.getInstance(this)
     }
-    private val mViewModel: MumlaCallViewModel by lazy {
-        ViewModelProvider(this)[MumlaCallViewModel::class.java]
-    }
+    private val mViewModel: MumlaCallViewModel by viewModel()
 
     private var mDrawerToggle: ActionBarDrawerToggle? = null
     private var mDrawerLayout: DrawerLayout? = null
@@ -157,7 +155,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     private val mObserver: HumlaObserver = object : HumlaObserver() {
-        override fun onConnected() {
+        override fun onConnected(msg: Mumble.ServerSync) {
             if (mSettings.shouldStartUpInPinnedMode()) {
                 loadDrawerFragment(DrawerAdapter.ITEM_PINNED_CHANNELS)
             } else {
@@ -655,9 +653,12 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int, permissions: Array<String?>, grantResults: IntArray
+        requestCode: Int,
+        permissions: Array<out String?>,
+        grantResults: IntArray,
+        deviceId: Int
     ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
 
         if (grantResults.size == 0) {
             return
@@ -856,7 +857,9 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                 }
 
             HumlaService.ConnectionState.DISCONNECTED -> {}
-            HumlaService.ConnectionState.CONNECTED -> {}
+            HumlaService.ConnectionState.CONNECTED -> {
+                Log.d(TAG, "CONNECTED: ${mService?.HumlaSession()?.serverSettings?.welcomeText}")
+            }
         }
     }
 

@@ -17,18 +17,21 @@
 package se.lublin.mumla.app
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import se.lublin.humla.model.IChannel
 import se.lublin.humla.model.IMessage
 import se.lublin.humla.model.IUser
+import se.lublin.humla.protobuf.Mumble
 import se.lublin.humla.util.HumlaException
 import se.lublin.humla.util.IHumlaObserver
 import se.lublin.humla.util.VoiceTargetMode
 import java.security.cert.X509Certificate
 
-abstract class BaseHumlaViewModel(application: Application) : AndroidViewModel(application), IHumlaObserver {
+abstract class BaseHumlaViewModel(application: Application) : AndroidViewModel(application),
+    IHumlaObserver {
 
-    override fun onConnected() {
+    override fun onConnected(msg: Mumble.ServerSync) {
     }
 
     override fun onConnecting() {
@@ -71,17 +74,21 @@ abstract class BaseHumlaViewModel(application: Application) : AndroidViewModel(a
     }
 
     override fun onMessageLogged(message: IMessage?) {
+        Log.d(this::class.simpleName, "onMessageLogged:${message?.message}")
     }
 
     override fun onVoiceTargetChanged(mode: VoiceTargetMode?) {
     }
 
     override fun onLogInfo(message: String) {
+        Log.d(this::class.simpleName, "onLogInfo:${message}")
     }
 
     override fun onLogWarning(message: String) {
+        Log.d(this::class.simpleName, "onLogWarning:${message}")
     }
 
     override fun onLogError(message: String) {
+        Log.d(this::class.simpleName, "onLogError:${message}")
     }
 }

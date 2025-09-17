@@ -25,9 +25,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.koin.android.annotation.KoinViewModel
 import se.lublin.humla.model.IChannel
 import se.lublin.humla.model.IUser
 import se.lublin.humla.model.Server
+import se.lublin.humla.protobuf.Mumble
 import se.lublin.humla.util.HumlaException
 import kotlin.random.Random
 
@@ -69,6 +71,7 @@ sealed class ServiceState(val channelName: String, val retryBackOff: Int = 3) {
     ) : ServiceState(_channelName, 3)
 }
 
+@KoinViewModel
 class MumlaCallViewModel(
     application: Application,
 ) : BaseHumlaViewModel(application) {
@@ -86,7 +89,7 @@ class MumlaCallViewModel(
             -1,
             "",
             "uat-voip.1111job.app",
-            0,
+            64738,
             "UserR_${Random.nextInt(1000)}",
             "52@11118888"
         )
@@ -131,9 +134,9 @@ class MumlaCallViewModel(
         }
     }
 
-    override fun onConnected() {
-        super.onConnected()
-        Log.d("MumlaCallViewModel", "Connected")
+    override fun onConnected(msg: Mumble.ServerSync) {
+        super.onConnected(msg)
+        Log.d("MumlaCallViewModel", "Connected, Welcome: ${msg.welcomeText}")
         viewModelScope.launch {
             val channelName =
                 (_serverStateFlow.value as? ServiceState.CONNECTING)?.channelName ?: return@launch

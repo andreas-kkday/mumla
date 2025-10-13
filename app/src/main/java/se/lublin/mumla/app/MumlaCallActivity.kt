@@ -616,7 +616,7 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     }
 
     fun createNewChannel(channelName: String, parentChannelId: Int, description: String? = null) {
-        mService?.HumlaSession()?.createChannel(parentChannelId, channelName, description, 0, true)
+        mService?.HumlaSession()?.createChannel(parentChannelId, channelName, description, 0, true, 2)
     }
 
     fun requestPermission() {

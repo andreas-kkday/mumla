@@ -90,7 +90,8 @@ public class ChannelEditFragment extends DialogFragment {
                                     mNameField.getText().toString(),
                                     mDescriptionField.getText().toString(),
                                     Integer.parseInt(mPositionField.getText().toString()), // We can guarantee this to be an int. InputType is numberSigned.
-                                    mTemporaryBox.isChecked());
+                                    mTemporaryBox.isChecked(),
+                                    2);
                         } else {
                             // TODO
                         }

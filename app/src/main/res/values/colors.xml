@@ -53,4 +53,7 @@
     <color name="ripple_talk_state_suppressed">@color/holo_green_dark</color>
     <color name="ripple_talk_state_server_muted">@color/holo_blue_dark</color>
     <color name="ripple_talk_state_server_deafened">@color/holo_blue_dark</color>
+
+    <color name="General_Black">#000000</color>
+    <color name="Background_Component">#ffffff</color>
 </resources>

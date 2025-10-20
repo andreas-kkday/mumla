@@ -55,6 +55,16 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentTransaction
 import androidx.lifecycle.lifecycleScope
+import java.net.InetSocketAddress
+import java.net.MalformedURLException
+import java.net.Socket
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
+import java.security.cert.CertificateException
+import java.security.cert.X509Certificate
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -91,16 +101,6 @@ import se.lublin.mumla.service.MumlaService.MumlaBinder
 import se.lublin.mumla.util.HumlaServiceFragment
 import se.lublin.mumla.util.HumlaServiceProvider
 import se.lublin.mumla.util.MumlaTrustStore
-import java.net.InetSocketAddress
-import java.net.MalformedURLException
-import java.net.Socket
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
-import java.security.cert.CertificateException
-import java.security.cert.X509Certificate
-import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.random.Random
-import kotlin.time.Duration.Companion.seconds
 
 class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
     ServerConnectHandler, HumlaServiceProvider, DatabaseProvider, OnSharedPreferenceChangeListener,
@@ -402,10 +402,12 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                     }
 
                     is ServiceAction.CREATE_CHANNEL -> {
-                        val openChannelId =
-                            mService?.HumlaSession()?.sessionChannel?.subchannels?.first { sub ->
-                                sub.name == "openchannel"
-                            }?.id ?: return@collect
+                        // 這邊要找 "openchannel, 但是 這時候 session channel 是？"
+                        val sessionChannel = mService?.HumlaSession()?.sessionChannel
+                        val openChannelId = ((sessionChannel?.subchannels ?: emptyList()) + sessionChannel)
+                            .firstOrNull { sub ->
+                                sub?.name == "openchannel"
+                            }?.id ?: 0
                         createNewChannel(it.name, openChannelId, it.name)
                     }
 

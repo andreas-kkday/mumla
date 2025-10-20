@@ -19,6 +19,7 @@ package se.lublin.mumla.app
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.viewModelScope
+import kotlin.random.Random
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +32,6 @@ import se.lublin.humla.model.IUser
 import se.lublin.humla.model.Server
 import se.lublin.humla.protobuf.Mumble
 import se.lublin.humla.util.HumlaException
-import kotlin.random.Random
 
 sealed class ServiceAction {
     object DISCONNECT : ServiceAction()
@@ -132,6 +132,11 @@ class MumlaCallViewModel(
                 )
             )
         }
+    }
+
+    override fun onUserRemoved(user: IUser, reason: String?) {
+        super.onUserRemoved(user, reason)
+        Log.d("MumlaCallViewModel", "onUserRemoved ${user.name}, $reason")
     }
 
     override fun onConnected(msg: Mumble.ServerSync) {

@@ -22,8 +22,8 @@
 plugins {
     id("com.android.library")
     alias(libs.plugins.kotlin.ksp)
-    // Consider adding kotlin-android plugin if you use Kotlin in this module's source code
-    // id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // The allprojects block here will configure this project and its subprojects (if any).
@@ -82,6 +82,14 @@ android {
         getByName("debug") {
         }
     }
+    kotlin {
+        sourceSets.all {
+            languageSettings {
+                // Apply this to the entire module
+                optIn("kotlinx.serialization.ExperimentalSerializationApi")
+            }
+        }
+    }
 
     // betas may be released every minute
     // TODO? dynamic stuff, have to rebuild a lot
@@ -114,6 +122,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.exifinterface)
     implementation(libs.netcipher)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.google.gson)
+    implementation(libs.network.retrofit.kotlinx)
+    implementation(libs.bundles.network.retrofit)
 
     //koin
     implementation(libs.koin.android)

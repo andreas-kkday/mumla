@@ -17,7 +17,6 @@
 package se.lublin.mumla.app
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.viewModelScope
 import kotlin.random.Random
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +31,7 @@ import se.lublin.humla.model.IUser
 import se.lublin.humla.model.Server
 import se.lublin.humla.protobuf.Mumble
 import se.lublin.humla.util.HumlaException
+import timber.log.Timber
 
 sealed class ServiceAction {
     object DISCONNECT : ServiceAction()
@@ -102,7 +102,7 @@ class MumlaCallViewModel(
     }
 
     fun createChannel(name: String) {
-        Log.d("MumlaCallViewModel", "createChannel $name")
+        Timber.d("createChannel $name")
         viewModelScope.launch {
             _actionSharedFlow.emit(ServiceAction.CREATE_CHANNEL(name))
         }
@@ -119,7 +119,7 @@ class MumlaCallViewModel(
 
     override fun onDisconnected(e: HumlaException?) {
         super.onDisconnected(e)
-        Log.d("MumlaCallViewModel", "onDisconnected")
+        Timber.d("onDisconnected")
         viewModelScope.launch {
             val backOffTime =
                 (_serverStateFlow.value).retryBackOff
@@ -136,12 +136,13 @@ class MumlaCallViewModel(
 
     override fun onUserRemoved(user: IUser, reason: String?) {
         super.onUserRemoved(user, reason)
-        Log.d("MumlaCallViewModel", "onUserRemoved ${user.name}, $reason")
+        Timber.d("onUserRemoved ${user.name}, $reason")
     }
 
     override fun onConnected(msg: Mumble.ServerSync) {
         super.onConnected(msg)
-        Log.d("MumlaCallViewModel", "Connected, Welcome: ${msg.welcomeText}")
+
+        Timber.d("Connected, Welcome: ${msg.welcomeText}")
         viewModelScope.launch {
             val channelName =
                 (_serverStateFlow.value as? ServiceState.CONNECTING)?.channelName ?: return@launch
@@ -154,20 +155,25 @@ class MumlaCallViewModel(
 
     override fun onUserStateUpdated(user: IUser) {
         super.onUserStateUpdated(user)
-        Log.d("MumlaCallViewModel", "User ${user.name}")
+        Timber.d("User ${user.name}")
     }
 
     override fun onChannelAdded(channel: IChannel) {
         super.onChannelAdded(channel)
         viewModelScope.launch {
             val channelName =
-                (_serverStateFlow.value as? ServiceState.CONNECTED)?.channelName ?: return@launch
-            _actionSharedFlow.emit(ServiceAction.JOIN_CHANNEL(channel))
+                (_serverStateFlow.value).channelName ?: return@launch
+
+            //Join channel only if is channel we created.
+            if (channelName == channel.name) {
+                _actionSharedFlow.emit(ServiceAction.JOIN_CHANNEL(channel))
+            }
+            Timber.d(
+                "Channel Created ${channel.name}, ${channel.id}, " +
+                        "${channel.isTemporary}, expect $channelName"
+            )
         }
-        Log.d(
-            "MumlaCallViewModel",
-            "Channel Created ${channel.name}, ${channel.id}, ${channel.isTemporary}"
-        )
+
     }
 
     override fun onUserJoinedChannel(
@@ -176,6 +182,8 @@ class MumlaCallViewModel(
         oldChannel: IChannel
     ) {
         super.onUserJoinedChannel(user, newChannel, oldChannel)
+
+
         viewModelScope.launch {
             _serverStateFlow.value = ServiceState.JOINED(newChannel.name)
         }
@@ -184,12 +192,12 @@ class MumlaCallViewModel(
     override fun onPermissionDenied(reason: String?) {
         super.onPermissionDenied(reason)
         //Check if any certificate issue here
-        Log.e("MumlaCallViewModel", "onPermissionDenied $reason")
+        Timber.e("onPermissionDenied $reason")
     }
 
     override fun onLogError(message: String) {
         super.onLogError(message)
-        Log.e("MumlaCallViewModel", message)
+        Timber.e(message)
     }
 
     override fun onCleared() {

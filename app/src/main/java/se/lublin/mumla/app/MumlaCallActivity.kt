@@ -63,6 +63,7 @@ import java.security.NoSuchAlgorithmException
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -940,6 +941,14 @@ class MumlaCallActivity : AppCompatActivity(), AdapterView.OnItemClickListener,
                 putExtra(JOB_TITLE, aboutJob)
             }
             context.startActivity(intent)
+        }
+
+        fun callIntent(context: Context, channel: String): Intent {
+            return Intent(context, MumlaCallActivity::class.java).apply {
+                putExtra(USER, "user_${abs(Random.nextInt()%100)}")
+                putExtra(CORP, channel)
+                putExtra(JOB_TITLE, channel)
+            }
         }
 
         fun launchAnswer(context: Context) {

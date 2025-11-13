@@ -82,14 +82,6 @@ android {
         getByName("debug") {
         }
     }
-    kotlin {
-        sourceSets.all {
-            languageSettings {
-                // Apply this to the entire module
-                optIn("kotlinx.serialization.ExperimentalSerializationApi")
-            }
-        }
-    }
 
     // betas may be released every minute
     // TODO? dynamic stuff, have to rebuild a lot

@@ -1,6 +1,7 @@
 package com.mumble1111.api
 
 import com.mumble1111.model.CallPayload
+import com.mumble1111.model.DeviceStatusPayload
 import com.mumble1111.model.GetVoipSettingPayload
 import com.mumble1111.model.MumbleInfo
 import com.mumble1111.model.UpdateTokenBody
@@ -31,7 +32,7 @@ class VoipRepository(
     }
 
 
-    suspend fun setVoipSetting(tNo: Int, voipSetting: VoipSetting) : Result<String> {
+    suspend fun setVoipSetting(tNo: Int, voipSetting: VoipSetting): Result<String> {
         return voipApiService.setVoipSetting(
             VoipSettingPayload(
                 securityKey = i18nApiKey,
@@ -40,6 +41,7 @@ class VoipRepository(
             )
         )
     }
+
     suspend fun getVoipSetting(uNo: Int): Result<String> {
         return voipApiService.getVoipSetting(
             GetVoipSettingPayload(
@@ -49,7 +51,13 @@ class VoipRepository(
         )
     }
 
-    suspend fun makeCallToOrganization(talentNo: Int, uNo: Int, talentName: String, talentDeviceId: String, jobId: Int): Result<String> {
+    suspend fun makeCallToOrganization(
+        talentNo: Int,
+        uNo: Int,
+        talentName: String,
+        talentDeviceId: String,
+        jobId: Int
+    ): Result<String> {
         return voipApiService.makeCall(
             CallPayload.CallPayloadToOrganization(
                 securityKey = i18nApiKey,
@@ -68,7 +76,14 @@ class VoipRepository(
         )
 
     }
-    suspend fun makeCallToTalent(uNo: Int, talentNo: Int, uName: String, uDeviceId: String, jobId: Int): Result<String> {
+
+    suspend fun makeCallToTalent(
+        uNo: Int,
+        talentNo: Int,
+        uName: String,
+        uDeviceId: String,
+        jobId: Int
+    ): Result<String> {
         return voipApiService.makeCall(
             CallPayload.CallPayloadToTalent(
                 securityKey = i18nApiKey,
@@ -83,6 +98,48 @@ class VoipRepository(
                     timestamp = System.currentTimeMillis(),
                     oLogo = "https://picsum.photos/seed/$uNo/128/128"
                 )
+            )
+        )
+    }
+
+    suspend fun orgLogout(deviceId: String, uNo: Int): Result<String> {
+        return voipApiService.logout(
+            DeviceStatusPayload.Logout(
+                securityKey = i18nApiKey,
+                deviceId = deviceId,
+                uNo = uNo,
+            )
+        )
+    }
+
+    suspend fun talentLogout(deviceId: String, tNo: Int): Result<String> {
+        return voipApiService.logout(
+            DeviceStatusPayload.Logout(
+                securityKey = i18nApiKey,
+                deviceId = deviceId,
+                tNo = tNo,
+            )
+        )
+    }
+
+    suspend fun orgAnswerCall(logId: Int, deviceId: String, uNo: Int): Result<String> {
+        return voipApiService.answerCall(
+            DeviceStatusPayload.CallAnswered(
+                securityKey = i18nApiKey,
+                uNo = uNo,
+                logId = logId,
+                deviceId = deviceId
+            )
+        )
+    }
+
+    suspend fun talentAnswerCall(logId: Int, deviceId: String, tNo: Int): Result<String> {
+        return voipApiService.answerCall(
+            DeviceStatusPayload.CallAnswered(
+                securityKey = i18nApiKey,
+                tNo = tNo,
+                logId = logId,
+                deviceId = deviceId
             )
         )
     }
